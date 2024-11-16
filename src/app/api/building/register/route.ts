@@ -22,7 +22,7 @@ export async function POST(request: Request) {
     // Check if the building already exists
     const existingBuilding = await prisma.building.findFirst({
       where: {
-        OR: [{ address_line1 }, { address_line2 }],
+        AND: [{ address_line1 }, { address_line2 }],
       },
     });
 

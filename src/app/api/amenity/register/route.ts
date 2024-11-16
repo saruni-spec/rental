@@ -11,7 +11,7 @@ export async function POST(request: Request) {
     // Check if the amenity already exists
     const existingAmenity = await prisma.amenity.findFirst({
       where: {
-        OR: [{ name }, { description }],
+        AND: [{ name }, { description }],
       },
     });
 

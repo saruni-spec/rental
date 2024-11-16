@@ -1,56 +1,3 @@
-/*
-===================================================================================
-Rental Property Management System Database Schema
-===================================================================================
-
-This database is designed to manage rental properties, tenants, leases, and related 
-operations. It handles everything from building management to tenant tracking, lease 
-management, billing, payments, and maintenance.
-
-Key Features:
-------------
-1. Multi-property management support
-2. Complete tenant lifecycle management
-3. Automated billing system with support for prorated first month
-4. Comprehensive damage and maintenance tracking
-5. Document storage for leases and damage evidence
-6. payment tracking and processing
-7. unit inspection and maintenance management
-
-Database Design Principles:
---------------------------
-1. Normalized to 3NF to prevent data redundancy
-2. Comprehensive audit trails (created_at, updated_at)
-3. Proper foreign key relationships for data integrity
-4. Status fields for all major entities
-5. Indexed frequently queried fields
-6. Check constraints to ensure data validity
-
-Major Components:
-----------------
-1. users Management (Users, owners, tenants)
-2. Property Management (Buildings, units, Amenities)
-3. lease Management (leases, Documents)
-4. Financial Management (billing, payments)
-5. Maintenance Management (Inspections, damages, Maintenance Requests)
-
-billing System Design:
----------------------
-- Handles prorated first month separately from regular monthly billing
-- Tracks partial payments and payment history
-- Supports multiple payment methods
-- Maintains clear audit trail of all transactions
-
-Maintenance System Design:
--------------------------
-- Tracks damages from discovery through repair
-- Supports photo documentation
-- Links damages to inspections and maintenance requests
-- Tracks cost estimates and actual repairs
-
-===================================================================================
-*/
-
 
 generator client {
   provider = "prisma-client-js"
@@ -159,7 +106,6 @@ model users {
   status                                                    String?              @default("active") @db.VarChar(20)
   created_at                                                DateTime?            @default(now()) @db.Timestamp(6)
   updated_at                                                DateTime?            @default(now()) @db.Timestamp(6)
-  damagephoto                                               damagephoto[]
   leasedocument                                             leasedocument[]
   maintenancerequest_maintenancerequest_assigned_toTousers  maintenancerequest[] @relation("maintenancerequest_assigned_toTousers")
   maintenancerequest_maintenancerequest_requested_byTousers maintenancerequest[] @relation("maintenancerequest_requested_byTousers")
@@ -197,13 +143,15 @@ model building {
   created_at        DateTime?           @default(now()) @db.Timestamp(6)
   updated_at        DateTime?           @default(now()) @db.Timestamp(6)
   owner             owner?              @relation(fields: [owner_id], references: [owner_id], onDelete: NoAction, onUpdate: NoAction)
-  buildingamenities buildingamenities[]
+  buildingamenity buildingamenity[]
   unit              unit[]
 }
 
-model buildingamenities {
+model buildingamenity {
   building_id Int
   amenity_id  Int
+  created_at   DateTime? @default(now()) @db.Timestamp(6)
+  updated_at   DateTime? @default(now()) @db.Timestamp(6)
   amenity     amenity  @relation(fields: [amenity_id], references: [amenity_id], onDelete: NoAction, onUpdate: NoAction)
   building    building @relation(fields: [building_id], references: [building_id], onDelete: NoAction, onUpdate: NoAction)
 
@@ -217,7 +165,8 @@ model amenity {
   status            String?             @default("active") @db.VarChar(20)
   created_at        DateTime?           @default(now()) @db.Timestamp(6)
   updated_at        DateTime?           @default(now()) @db.Timestamp(6)
-  buildingamenities buildingamenities[]
+  buildingamenity buildingamenity[]
+  unitmenity      unitamenity[]
 }
 
 
@@ -347,14 +296,15 @@ model unit {
 
 
 model unitamenity {
-  amenity_id   Int       @id @default(autoincrement())
-  unit_id      Int?
-  amenity_type String    @db.VarChar(50)
-  description  String?
+  amenity_id   Int
+  unit_id      Int
   status       String?   @default("active") @db.VarChar(20)
   created_at   DateTime? @default(now()) @db.Timestamp(6)
   updated_at   DateTime? @default(now()) @db.Timestamp(6)
+  amenity     amenity  @relation(fields: [amenity_id], references: [amenity_id], onDelete: NoAction, onUpdate: NoAction)
   unit         unit?     @relation(fields: [unit_id], references: [unit_id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@id([unit_id, amenity_id])
 }
 
 
@@ -382,35 +332,31 @@ model damage {
   reported_date         DateTime             @db.Date
   discovered_during     String               @db.VarChar(50)
   description           String
-  severity              DamageSeverityType?  
-  estimated_repair_cost Decimal?             @db.Decimal(10, 2)
-  actual_repair_cost    Decimal?             @db.Decimal(10, 2)
   status                DamageStatusType?    @default(REPORTED)
-  repaired_date         DateTime?            @db.Date
-  is_tenant_liable      String?              @default("0") @db.Bit(1)
   notes                 String?
+  file_path   String    @db.VarChar(255)
+  uploaded_by Int?
   created_at            DateTime?            @default(now()) @db.Timestamp(6)
   updated_at            DateTime?            @default(now()) @db.Timestamp(6)
   unitinspection        unitinspection?      @relation(fields: [inspection_id], references: [inspection_id], onDelete: NoAction, onUpdate: NoAction)
   tenant                tenant?              @relation(fields: [tenant_id], references: [tenant_id], onDelete: NoAction, onUpdate: NoAction)
   unit                  unit?                @relation(fields: [unit_id], references: [unit_id], onDelete: NoAction, onUpdate: NoAction)
-  damagephoto           damagephoto[]
   maintenancerequest    maintenancerequest[]
+  damageDetails         damageDetails[]
 
   @@index([status], map: "idx_damages_status")
 }
 
-model damagephoto {
-  photo_id    Int       @id @default(autoincrement())
-  damage_id   Int?
-  file_path   String    @db.VarChar(255)
-  description String?
-  uploaded_by Int?
-  upload_date DateTime? @default(now()) @db.Timestamp(6)
-  damage      damage?   @relation(fields: [damage_id], references: [damage_id], onDelete: NoAction, onUpdate: NoAction)
-  users       users?    @relation(fields: [uploaded_by], references: [user_id], onDelete: NoAction, onUpdate: NoAction)
+model damageDetails {
+  id                  Int                   @id @default(autoincrement())
+  damage_id           Int                   @unique
+  estimated_repair_cost Decimal?            @db.Decimal(10, 2)
+  actual_repair_cost    Decimal?            @db.Decimal(10, 2)
+  severity              DamageSeverityType?  
+  repaired_date         DateTime?            @db.Date
+  is_tenant_liable      String?              @default("0") @db.Bit(1)
+  damage              damage?                @relation(fields: [damage_id], references: [damage_id], onDelete: Cascade, onUpdate: NoAction)
 }
-
 
 
 
