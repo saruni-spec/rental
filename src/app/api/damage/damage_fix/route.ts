@@ -24,9 +24,8 @@ export async function POST(request: Request) {
     const repairDetails = await prisma.damageDetails.update({
       where: { damage_id },
       data: {
-        estimated_repair_cost: estimated_repair_cost,
-        actual_repair_cost: actual_repair_cost,
-        repaired_date: repaired_date,
+        actual_repair_cost,
+        repaired_date,
       },
     });
 
